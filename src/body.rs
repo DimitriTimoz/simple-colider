@@ -1,8 +1,8 @@
-use std::ops::Add;
+use std::{ops::Add, collections::HashMap};
 
 use bevy::prelude::*;
 
-use crate::{gravity::Gravity, ball::Radius};
+use crate::{gravity::Gravity, ball::{Radius, Ball}, collider::grid::{Grid, ColliderDesc}};
 
 #[derive(Component, Clone, Copy)]
 pub struct DynamicBody {
@@ -53,47 +53,89 @@ impl DynamicBody {
     }
 
     fn apply_physics(
-        mut bodies: Query<(&mut Transform, &mut DynamicBody)>,
+        mut bodies: Query<(&mut Transform, &mut DynamicBody, &Ball)>,
         time: Res<Time>,
+        mut grid: ResMut<Grid>,
     ) {
-        for (mut transform, mut body) in bodies.iter_mut() {
+        grid.clear();
+        for (mut transform, mut body, ball) in bodies.iter_mut() {
             let acceleration = body.acceleration.0;
             body.velocity.0 += acceleration * time.delta_seconds();
             transform.translation += body.velocity.0 * time.delta_seconds();
+            grid.add(ColliderDesc {
+                position: transform.translation.truncate(),
+                id: ball.0,
+            });
         }
     }
 
     fn fix_colisions( 
-        mut query: Query<(&mut Transform, &mut DynamicBody, &Radius)>,
+        mut query: Query<(&Ball, &mut Transform, &mut DynamicBody, &Radius, &mut Handle<ColorMaterial>, With<DynamicBody>)>,
+        mut grid: ResMut<Grid>,
+        mut materials: ResMut<Assets<ColorMaterial>>,
         time: Res<Time>,
     ) {
 
-        let mut objects = query.iter_mut().collect::<Vec<_>>();
-
-        for i in 0..objects.len() {
-            for j in 1..objects.len() {
-               
-                // Check if collision 
-                let radius = objects[i].2.0 + objects[j].2.0;
-
-                let distance = objects[i].0.translation.distance(objects[j].0.translation);
-                if radius > distance && distance != 0.0{
-                    let vel1 = objects[i].1.velocity.0;
-                    let vel2 = objects[j].1.velocity.0;
-                    objects[i].1.velocity.0 = vel2 * 0.99;
-                    objects[j].1.velocity.0 = vel1 * 0.99;
-
-                    // fix position
-                    let to_fix = (radius - distance ) / 2.0;
-
-                    let trans1 = objects[i].0.translation;
-                    let trans2 = objects[j].0.translation;
-                    objects[i].0.translation += (trans1 - trans2).normalize() * to_fix;
-                    objects[j].0.translation += (trans2 - trans1).normalize() * to_fix;
-
+        let m = query.iter_mut().map(|(ball, transform, body, radius, color, _)| (ball.0, (transform, body, radius.0, color)));
+        let mut objects: HashMap<usize, (Mut<Transform>, Mut<DynamicBody>, f32, Mut<Handle<ColorMaterial>>)> = m.collect();
+        for cell in grid.get_cells() {
+            for cid in cell.get_colliders() {
+                let collided = grid.get_collided(cid.position);
+                let n_collided = collided.len();
+                // Resolve collision
+                for c in collided {
+                    // Get the Transform and DynamicBody components of the collided entities
+                    let mut trans_other = Vec3::ZERO;
+                    let mut vel_other = Vec3::ZERO;
                     
+                    let mut trans_me = Vec3::ZERO;
+                    let mut vel_me = Vec3::ZERO;
+    
+                    {
+                        let cid = cid.id;
+                        let me = objects.get(&cid).unwrap();
+                        let c_id = c.id;
+                        let other = objects.get(&c_id).unwrap();
+
+                        vel_me = -other.1.velocity.0 * 0.5;
+                        vel_other = -me.1.velocity.0 * 0.9;
+
+                        // fix position
+                        let distance = me.0.translation.distance(other.0.translation);
+                        let overlap = 0.5 * (distance - me.2 - other.2);
+                        let direction = (other.0.translation - me.0.translation);
+                        trans_me = me.0.translation + direction * overlap;
+                        trans_other = other.0.translation - direction * overlap;
+                    }   
+                    // Get mut 
+                    {
+                        let other = objects.get_mut(&c.id).unwrap();
+                        other.0.translation = trans_other;
+                        other.1.velocity.0 = vel_other;
+                    }
+                    {
+                        let cid = cid.clone();
+                        let me = objects.get_mut(&cid.id).unwrap();
+                        me.0.translation = trans_me;
+                        me.1.velocity.0 = vel_me;
+                    }
+                }
+                {
+        
+                    let cid = cid.clone();
+                    let me = objects.get_mut(&cid.id).unwrap();
+                    /*let mut color_mat = materials.get_mut(&me.3).unwrap();
+
+                    if n_collided > 5 {
+                        color_mat.color = Color::rgb(1.0, 0.0, 0.0);
+                    } else if n_collided > 1 {
+                        color_mat.color = Color::rgb(1.0, 0.0, 1.0);
+                    } else {
+                        color_mat.color = Color::rgb(0.0, 0.0, 1.0);
+                    };*/
                 }
             }
+
         }
     }
     

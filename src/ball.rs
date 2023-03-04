@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::body::{DynamicBody, Velocity};
 
 #[derive(Component)]
-pub struct Ball;
+pub struct Ball(pub usize);
 
 #[derive(Component)]
 pub struct Radius(pub f32);
@@ -25,17 +25,15 @@ impl BallBundle {
         position: Vec3,
     ) -> Self {
         // Get a random color
-        let mut rng = rand::thread_rng();
-        let color = Color::rgb(rng.gen(), rng.gen(), rng.gen());
-        
+        let mut rng = rand::thread_rng();        
         Self {
             mesh: MaterialMesh2dBundle {
-                material: materials.add(ColorMaterial::from(color)),               
+                material: materials.add(ColorMaterial::from(Color::WHITE)),               
                 mesh: meshes.add(shape::Circle::new(radius).into()).into(),
                 transform: Transform::from_translation(position),
                 ..Default::default()
             },
-            ball: Ball,
+            ball: Ball(rng.gen_range(0..usize::MAX)),
             radius: Radius(radius),
             body: DynamicBody {
                 velocity: Velocity(Vec3::new(
