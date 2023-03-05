@@ -1,4 +1,6 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*};
+use std::collections::HashMap;
+use rayon::prelude::ParallelIterator;
 
 #[derive(Clone)]
 pub struct ColliderDesc {

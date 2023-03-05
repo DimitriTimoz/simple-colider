@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Grid::new(0.3, 0.2))
+        .insert_resource(Grid::new(0.5, 0.2))
         .insert_resource(Time::default())
         .add_system_set(DynamicBody::system_set())
         .add_startup_system(setup)
@@ -36,7 +36,7 @@ fn setup(
     commands.spawn(gravity);
 
     // Spawn 10 OOO balls to a random position in a circle of radius 10
-    for _ in 0..20_000 {
+    for _ in 0..2_000 {
         let radius = 0.2;
         let position = Vec3::new(
             (rand::random::<f32>() - 0.5) * 1500.0,

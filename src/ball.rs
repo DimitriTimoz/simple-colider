@@ -28,7 +28,7 @@ impl BallBundle {
         let mut rng = rand::thread_rng();        
         Self {
             mesh: MaterialMesh2dBundle {
-                material: materials.add(ColorMaterial::from(Color::WHITE)),               
+                material: materials.add(ColorMaterial::from(Color::BLUE)),               
                 mesh: meshes.add(shape::Circle::new(radius).into()).into(),
                 transform: Transform::from_translation(position),
                 ..Default::default()

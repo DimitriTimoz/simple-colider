@@ -9,6 +9,7 @@ pub struct DynamicBody {
     pub mass: Mass,
     pub velocity: Velocity,
     pub acceleration: Acceleration,
+    pub n_collisions: usize,
 }
 
 #[derive(Component, Clone, Copy)]
@@ -27,6 +28,7 @@ impl Default for DynamicBody {
             mass: Mass(1.0),
             velocity: Velocity(Vec3::ZERO),
             acceleration: Acceleration(Vec3::ZERO),
+            n_collisions: 0,
         }
     }
 }
@@ -85,54 +87,43 @@ impl DynamicBody {
                 // Resolve collision
                 for c in collided {
                     // Get the Transform and DynamicBody components of the collided entities
-                    let mut trans_other = Vec3::ZERO;
-                    let mut vel_other = Vec3::ZERO;
+                    let cid = cid.id;
+                    let me = objects.get(&cid).unwrap();
+                    let c_id = c.id;
+                    let other = objects.get(&c_id).unwrap();
+
+                    let vel_me = -other.1.velocity.0 * 0.4;
+                    let vel_other = -me.1.velocity.0 * 0.4;
+
+                    // fix position
+                    let distance = me.0.translation.distance(other.0.translation);
+                    let overlap = 0.5 * (distance - me.2 - other.2);
+                    let direction = (other.0.translation - me.0.translation).normalize();
+                    let trans_me = me.0.translation + direction * overlap;
+                    let trans_other = other.0.translation - direction * overlap;
+                
+                    let other = objects.get_mut(&c.id).unwrap();
+                    other.0.translation = trans_other;
+                    other.1.velocity.0 = vel_other;
+                
+                    let cid = cid;
+                    let me = objects.get_mut(&cid).unwrap();
+                    me.0.translation = trans_me;
+                    me.1.velocity.0 = vel_me;
                     
-                    let mut trans_me = Vec3::ZERO;
-                    let mut vel_me = Vec3::ZERO;
-    
-                    {
-                        let cid = cid.id;
-                        let me = objects.get(&cid).unwrap();
-                        let c_id = c.id;
-                        let other = objects.get(&c_id).unwrap();
-
-                        vel_me = -other.1.velocity.0 * 0.5;
-                        vel_other = -me.1.velocity.0 * 0.9;
-
-                        // fix position
-                        let distance = me.0.translation.distance(other.0.translation);
-                        let overlap = 0.5 * (distance - me.2 - other.2);
-                        let direction = (other.0.translation - me.0.translation);
-                        trans_me = me.0.translation + direction * overlap;
-                        trans_other = other.0.translation - direction * overlap;
-                    }   
-                    // Get mut 
-                    {
-                        let other = objects.get_mut(&c.id).unwrap();
-                        other.0.translation = trans_other;
-                        other.1.velocity.0 = vel_other;
-                    }
-                    {
-                        let cid = cid.clone();
-                        let me = objects.get_mut(&cid.id).unwrap();
-                        me.0.translation = trans_me;
-                        me.1.velocity.0 = vel_me;
-                    }
                 }
                 {
         
                     let cid = cid.clone();
                     let me = objects.get_mut(&cid.id).unwrap();
-                    /*let mut color_mat = materials.get_mut(&me.3).unwrap();
+                    if me.1.n_collisions != n_collided {
+                        me.1.n_collisions = n_collided;
+                        let mut color_mat = materials.get_mut(&me.3).unwrap();
 
-                    if n_collided > 5 {
-                        color_mat.color = Color::rgb(1.0, 0.0, 0.0);
-                    } else if n_collided > 1 {
-                        color_mat.color = Color::rgb(1.0, 0.0, 1.0);
-                    } else {
-                        color_mat.color = Color::rgb(0.0, 0.0, 1.0);
-                    };*/
+                        // White color to red color depending on the number of collisions
+                        color_mat.color = Color::rgb((n_collided as f32 * 0.05).min(1.0), 0.0, 1.0 - (n_collided as f32 * 0.05).min(1.0));
+    
+                    }
                 }
             }
 
